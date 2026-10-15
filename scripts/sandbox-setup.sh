@@ -49,15 +49,51 @@ fi
 # --- Git ---
 command -v git &>/dev/null || die "git is required (for egglog git dependency)"
 
-# --- Optional: Python + ruff (for pytorch crate linting) ---
+# --- C compiler (transitive build dep via the cc crate, used by egglog) ---
+if ! command -v cc &>/dev/null && ! command -v gcc &>/dev/null && ! command -v clang &>/dev/null; then
+    log "No C compiler found — attempting to install one..."
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq build-essential
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y gcc
+    elif command -v yum &>/dev/null; then
+        sudo yum install -y gcc
+    elif command -v apk &>/dev/null; then
+        apk add --no-cache build-base
+    elif command -v brew &>/dev/null; then
+        # macOS: Xcode CLI tools provide cc
+        xcode-select --install 2>/dev/null || true
+    else
+        die "No C compiler found and no known package manager to install one. Install gcc or clang manually."
+    fi
+fi
+command -v cc &>/dev/null || command -v gcc &>/dev/null || command -v clang &>/dev/null \
+    || die "C compiler still not available after install attempt"
+log "C compiler: $(cc --version 2>/dev/null | head -1 || gcc --version 2>/dev/null | head -1 || clang --version 2>/dev/null | head -1)"
+
+# --- Python dev headers (needed by PyO3 crates: luminal_reference_py, luminal_cuda_lite_py) ---
+HAS_PYTHON_DEV=false
 if command -v python3 &>/dev/null; then
     log "Python found: $(python3 --version)"
+    if python3 -c "import sysconfig; assert sysconfig.get_path('include')" 2>/dev/null \
+       && [ -f "$(python3 -c 'import sysconfig; print(sysconfig.get_path("include"))')/Python.h" ]; then
+        HAS_PYTHON_DEV=true
+        log "Python dev headers found"
+    else
+        log "Python dev headers missing — attempting to install..."
+        if command -v apt-get &>/dev/null; then
+            sudo apt-get install -y -qq python3-dev 2>/dev/null && HAS_PYTHON_DEV=true
+        elif command -v dnf &>/dev/null; then
+            sudo dnf install -y python3-devel 2>/dev/null && HAS_PYTHON_DEV=true
+        fi
+        $HAS_PYTHON_DEV || warn "Could not install Python dev headers — PyO3 crates will be excluded from clippy"
+    fi
     if ! command -v ruff &>/dev/null; then
         log "Installing ruff for Python linting..."
         pip3 install --quiet ruff 2>/dev/null || warn "Could not install ruff — pytorch linting will be unavailable"
     fi
 else
-    warn "Python not found — pytorch crate linting will be unavailable (not required for core development)"
+    warn "Python not found — PyO3 crates will be excluded from clippy, pytorch linting unavailable"
 fi
 
 # --- Workspace packages that build without a GPU ---
