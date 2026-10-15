@@ -1,0 +1,12 @@
+{
+  "trajectories": [
+    {
+      "id": "01a117ab-93ce-72a3-8f70-a27fab0a7d3c",
+      "description": "Luminal crate structure, tensor IR, e-graphs, implementation search, and control flow."
+    },
+    {
+      "id": "01a117a4-8a2b-7183-ae14-65cf60fb8dd7",
+      "description": "Contributor-oriented repository guide, glossary, open issue and PR summaries, and ranked Mac-friendly beginner tasks."
+    }
+  ]
+}
